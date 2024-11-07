@@ -1,0 +1,3 @@
+ARG NODE_VERSION=12.22.12-alpine
+FROM node:${NODE_VERSION}
+

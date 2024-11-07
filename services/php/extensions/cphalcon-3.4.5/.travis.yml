@@ -1,0 +1,106 @@
+language: php
+php:
+  - '7.3.5'
+  - '7.2'
+  - '7.1'
+  - '7.0'
+  - '5.6'
+
+git:
+  depth: 1
+
+branches:
+  only:
+    - master
+    - /^3\.(4|5)\.(\d+|x)$/
+
+addons:
+  apt:
+    packages:
+      - beanstalkd
+      - gdb
+      - lcov
+
+matrix:
+  fast_finish: true
+
+cache:
+  timeout: 604800
+  directories:
+    - $HOME/.composer/cache
+
+services:
+  - beanstalkd
+  - mongodb
+  - redis-server
+  - postgresql
+  - mysql
+  - memcached
+
+env:
+  global:
+    - CC="gcc"
+    - ZEPHIR_VERSION="0.10.14"
+    - ZEPHIR_PARSER_VERSION="v1.1.4"
+    - BACKEND="ZendEngine3"
+    - PATH="$HOME/bin:$HOME/.composer/vendor/bin:$PATH"
+    - TRAVIS_COMMIT_LOG="$(git log --format=fuller -5)"
+
+before_install:
+  - |
+    # Core dump settings
+    ulimit -c unlimited -S || true
+    echo '/tmp/core.%e.%p.%t' | sudo tee /proc/sys/kernel/core_pattern
+
+    if [ -n "$GITHUB_TOKEN" ]; then
+      composer config github-oauth.github.com "$GITHUB_TOKEN"
+      echo 'Add Github token'
+    fi
+
+    # Hide "You are in 'detached HEAD' state" message
+    git config --global advice.detachedHead false
+
+    [ -d ~/bin ] || mkdir ~/bin
+    export DEFAULT_COMPOSER_FLAGS=("--no-interaction" "--no-ansi" "--no-progress" "--no-suggest")
+
+  - source ./tests/_ci/export-variables.sh
+
+install:
+  - ./tests/_ci/setup-dbs.sh
+  - ./tests/_ci/install-prereqs-$PHP_MAJOR.sh
+  - ./tests/_ci/install-zephir.sh
+  - travis_retry composer install ${DEFAULT_COMPOSER_FLAGS[*]}
+
+before_script:
+  - cat ./tests/_ci/travis.ini >> "$(phpenv prefix)/etc/conf.d/travis.ini"
+  - ./tests/_ci/build.sh
+
+script:
+  - vendor/bin/codecept build --quiet
+  - vendor/bin/codecept run --ext DotReporter tests/integration/
+  - vendor/bin/codecept run --ext DotReporter tests/unit/
+  - vendor/bin/phpunit --bootstrap tests/_ci/phpunit.php unit-tests/
+  - ./tests/_ci/run-volt-tests.sh
+
+jobs:
+  include:
+    - stage: Static Code Analysis
+      php: '7.2'
+      install:
+        - travis_retry composer install ${DEFAULT_COMPOSER_FLAGS[*]} --ignore-platform-reqs
+      before_script:
+        - phpenv config-rm xdebug.ini || true
+      script:
+        - vendor/bin/phpcs
+
+after_failure:
+  - echo "$($(phpenv which php) -v)"
+  - echo "$($(phpenv which php) -m)"
+  - ./tests/_ci/after-failure.sh
+
+after_script:
+  - printf "$TRAVIS_COMMIT_RANGE\n"
+  - printf "$TRAVIS_COMMIT_LOG\n"
+
+notifications:
+  email: false

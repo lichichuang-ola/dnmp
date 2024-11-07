@@ -687,18 +687,18 @@ if [[ -z "${EXTENSIONS##*,zookeeper,*}" ]]; then
     fi
 fi
 
-if [[ -z "${EXTENSIONS##*,phalcon,*}" ]]; then
-    echo "---------- Install phalcon ----------"
-    isPhpVersionGreaterOrEqual 7 2
+# if [[ -z "${EXTENSIONS##*,phalcon,*}" ]]; then
+#     echo "---------- Install phalcon ----------"
+#     isPhpVersionGreaterOrEqual 7 2
 
-    if [[ "$?" = "1" ]]; then
-        printf "\n" | pecl install phalcon
-        docker-php-ext-enable psr
-        docker-php-ext-enable phalcon
-    else
-        echo "---------- PHP Version>= 7.2----------"
-    fi
-fi
+#     if [[ "$?" = "1" ]]; then
+#         printf "\n" | pecl install phalcon
+#         docker-php-ext-enable psr
+#         docker-php-ext-enable phalcon
+#     else
+#         echo "---------- PHP Version>= 7.2----------"
+#     fi
+# fi
 
 if [[ -z "${EXTENSIONS##*,sdebug,*}" ]]; then
     echo "---------- Install sdebug ----------"
@@ -720,6 +720,13 @@ if [[ -z "${EXTENSIONS##*,sdebug,*}" ]]; then
         echo "---------- PHP Version>= 7.2----------"
     fi
 fi
+
+# 安装phalcon
+echo 安装phalcon
+
+cd cphalcon-3.4.5/build
+./install
+docker-php-ext-enable phalcon
 
 if [ "${PHP_EXTENSIONS}" != "" ]; then
     apk del .build-deps \
